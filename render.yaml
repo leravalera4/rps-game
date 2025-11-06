@@ -1,0 +1,47 @@
+services:
+  # Frontend (Next.js)
+  - type: web
+    name: rps-game-frontend
+    runtime: node
+    region: frankfurt  # или oregon, singapore
+    plan: free
+    rootDir: ./web
+    buildCommand: npm install --legacy-peer-deps && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        sync: false  # Нужно установить в Render Dashboard
+      - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
+        sync: false
+      - key: NEXT_PUBLIC_BACKEND_URL
+        value: https://last-backend-7d8f5fbc0943.herokuapp.com
+      - key: NEXT_PUBLIC_MAGICBLOCK_DEVNET_URL
+        value: https://devnet.magicblock.app
+      - key: NEXT_PUBLIC_MAGICBLOCK_ROUTER_URL
+        value: https://devnet-rpc.magicblock.app
+
+  # Backend (WebSocket + API)
+  - type: web
+    name: rps-game-backend
+    runtime: node
+    region: frankfurt
+    plan: free
+    rootDir: ./backend
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3001
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SERVICE_WALLET_PRIVATE_KEY
+        sync: false
+      - key: PLATFORM_WALLET_ADDRESS
+        sync: false
+

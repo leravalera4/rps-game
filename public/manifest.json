@@ -1,0 +1,17 @@
+{
+  "name": "RPS Magic Block",
+  "short_name": "RPS Magic",
+  "description": "Play Rock Paper Scissors on the Solana blockchain",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "icons": [
+    {
+      "src": "/icons/logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+} 

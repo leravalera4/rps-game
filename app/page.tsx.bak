@@ -1,0 +1,1672 @@
+"use client"
+
+import { useState, useEffect } from "react"
+import { usePrivyWallet as useWallet } from '@/hooks/use-privy-wallet'
+import { useConnection } from '@solana/wallet-adapter-react'
+import { LAMPORTS_PER_SOL } from '@solana/web3.js'
+import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Badge } from "@/components/ui/badge"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
+import { useGame } from "@/hooks/use-game"
+import { useUserProfile } from "@/hooks/use-user-profile"
+import { useLeaderboard } from "@/hooks/use-leaderboard"
+import { useStats } from "@/hooks/use-stats"
+import { useAnchorProgram } from "@/hooks/use-anchor-program"
+import { StyledWalletButton } from "@/components/styled-wallet-button"
+import { JoinGameDialog } from "@/components/join-game-dialog"
+import { useSimpleMove } from "../hooks/use-simple-move"
+
+import {
+  Zap,
+  Users,
+  Trophy,
+  Share2,
+  Hand,
+  Copy,
+  Sparkles,
+  Wallet,
+  Clock,
+  GamepadIcon,
+  Target,
+  Gift,
+  Crown,
+  Medal,
+  Star,
+  Search,
+  Plus,
+  Circle,
+  Square,
+  X,
+  LogOut,
+  AlertTriangle,
+} from "lucide-react"
+
+interface WalletOption {
+  id: string
+  name: string
+  icon: string
+  description: string
+}
+
+// GameState interface is now imported from use-game hook
+
+const walletOptions: WalletOption[] = [
+  {
+    id: "phantom",
+    name: "Phantom",
+    icon: "/icons/phantom.svg",
+    description: "Connect using Phantom wallet",
+  },
+  {
+    id: "solflare",
+    name: "Solflare",
+    icon: "/icons/solflare.svg",
+    description: "Connect using Solflare wallet",
+  },
+  {
+    id: "coinbase",
+    name: "Coinbase Wallet",
+    icon: "/icons/coinbase.svg",
+    description: "Connect using Coinbase wallet",
+  },
+  {
+    id: "torus",
+    name: "Torus",
+    icon: "/icons/torus.svg",
+    description: "Connect using Torus wallet",
+  },
+]
+
+const moves = [
+  {
+    id: "rock",
+    name: "Rock",
+    icon: (
+      <div className="w-10 h-10 flex items-center justify-center">
+        <svg viewBox="0 0 512 512" className="w-8 h-8 fill-current">
+          <path d="M243.8,0c-25.9,0-48.7,13.7-61.7,34.3c-10.7-6.1-22.8-9.9-35.8-9.9c-40.1,0-73.1,33-73.1,73.1v89.1l-51,65.5
+            c-31.1,40.3-29,98.1,4.6,136.4l57.9,65.5c32.4,36.9,79,57.9,128,57.9h128.8c94,0,170.7-76.7,170.7-170.7V121.9
+            c0-40.1-33-73.1-73.1-73.1c-13,0-25.1,3.8-35.8,9.9c-13-20.6-35.8-34.3-61.7-34.3c-13,0-25.1,3.8-35.8,9.9
+            C292.5,13.7,269.7,0,243.8,0z M243.8,48.8c13.8,0,24.4,10.6,24.4,24.4v73.1h48.8V97.5c0-13.8,10.6-24.4,24.4-24.4
+            c13.8,0,24.4,10.6,24.4,24.4v48.8h48.8v-24.4c0-13.8,10.6-24.4,24.4-24.4c13.8,0,24.4,10.6,24.4,24.4v219.4
+            c0,67.6-54.3,121.9-121.9,121.9H212.6c-35,0-68.3-14.8-91.4-41.1l-57.9-66.3c-18.4-21-19.3-51-2.3-73.1l12.2-16v25.9h48.8v-195
+            c0-13.8,10.6-24.4,24.4-24.4s24.4,10.6,24.4,24.4v48.8h48.8V73.1C219.4,59.3,230,48.8,243.8,48.8z"/>
+        </svg>
+      </div>
+    ),
+    bgColor: "bg-yellow-500/20",
+    borderColor: "border-yellow-500/50",
+    textColor: "text-yellow-400",
+  },
+  {
+    id: "paper",
+    name: "Paper",
+    icon: (
+      <div className="w-10 h-10 flex items-center justify-center">
+        <svg viewBox="0 0 512 512" className="w-8 h-8 fill-current">
+          <path d="M274.3,0C249,0,228,17.7,221.7,41.1c-6.4-2.6-13.2-4.6-20.6-4.6c-30.1,0-54.9,24.8-54.9,54.9V288l-16-16
+            c-21.3-21.3-56.4-21.3-77.7,0s-21.3,56.4,0,77.7l124,124c21.5,21.4,51.2,38.3,86.3,38.3h84.6c70.5,0,128-57.5,128-128V164.6
+            c0-30.1-24.8-54.9-54.9-54.9c-6.4,0-12.5,1.4-18.3,3.4V91.4c0-30.1-24.8-54.9-54.9-54.9c-7.4,0-14.1,1.9-20.6,4.6
+            C320.6,17.7,299.6,0,274.3,0z M274.3,36.6c10.4,0,18.3,7.9,18.3,18.3v182.9h36.6V91.4c0-10.4,7.9-18.3,18.3-18.3
+            s18.3,7.9,18.3,18.3v146.3h36.6v-73.1c0-10.4,7.9-18.3,18.3-18.3c10.4,0,18.3,7.9,18.3,18.3V384c0,50.7-40.7,91.4-91.4,91.4h-84.6
+            c-23.3,0-43.3-11.4-60-28L78.3,324c-7.3-7.3-7.3-19,0-26.3c7.3-7.3,19-7.3,26.3,0l46.9,47.4l31.4,31.4V91.4
+            c0-10.4,7.9-18.3,18.3-18.3s18.3,7.9,18.3,18.3v146.3H256V54.9C256,44.5,263.9,36.6,274.3,36.6z"/>
+        </svg>
+      </div>
+    ),
+    bgColor: "bg-green-500/20",
+    borderColor: "border-green-500/50",
+    textColor: "text-green-400",
+  },
+  {
+    id: "scissors",
+    name: "Scissors",
+    icon: (
+      <div className="w-10 h-10 flex items-center justify-center translate-x-[2px]">
+        <svg viewBox="0 0 512 512" className="w-8 h-8 fill-current">
+          <path d="M172,72.9c-15.1-0.3-27.7,2.9-35.4,5.1H136L90.3,92.3C36.6,108.8,0,158.5,0,214.6v96.6c0,70.5,57.5,128,128,128h181.1
+            c22.3,0.5,43.9-12.6,52.6-34.3c5.5-13.8,4.7-28.3-0.6-41.1c11.2-5.9,20.7-15.5,25.7-28c5.7-14.4,4.8-29.6-1.1-42.9h71.4
+            c30.1,0,54.9-24.8,54.9-54.9s-24.8-54.9-54.9-54.9h-28l7.4-2.3c28.8-8.7,45.3-39.8,36.6-68.6S433.4,67,404.6,75.7l-154.3,47.4
+            c-1.4-3.4-2.9-7.1-5.1-10.9C236,97,217.5,79.7,188,74.6C182.5,73.6,177.1,72.9,172,72.9z M422.9,110c7.1,0.8,13.2,5.7,15.4,13.1
+            c3,9.9-2.7,19.9-12.6,22.9l-125.1,37.7l6.3,20.6v15.4h150.3c10.4,0,18.3,7.9,18.3,18.3s-7.9,18.3-18.3,18.3H336.6l-48-18.9
+            c-6.9-2.8-14.1-4.1-21.1-4l-9.7-74.9l157.7-48C417.9,109.8,420.5,109.7,422.9,110z M171.4,110.6c3.5,0,7.1,0,10.3,0.6
+            c19.6,3.4,27.2,12,32,20c4.8,8,5.1,13.7,5.1,13.7v1.1l15.4,117.7l0.6,1.7c2.3,9.6-3.5,18.9-13.1,21.1c-5.9,1.4-8.9,0.6-12-1.1
+            c-3.1-1.8-6.9-5.6-9.7-13.7l-22.9-88.6c-1.4-5.4-5.3-9.9-10.4-12.1c-5.1-2.2-11-2-15.9,0.6l-30.3,16.6c-8.9,4.9-12.1,16-7.1,24.9
+            c4.9,8.9,16,12.1,24.9,7.1l9.1-5.1l17.7,67.4l0.6,1.7c4.9,14.1,13.4,25.5,25.1,32.6c9.6,5.8,20.9,8,32,6.9
+            c-5.8,5.4-10.6,12.2-13.7,20c-8.4,20.9-3.1,43.9,12,58.9H128c-50.7,0-91.4-40.7-91.4-91.4v-96.6c0-40.2,26.1-75.6,64.6-87.4
+            l45.7-13.7C150.6,112.3,161,110.6,171.4,110.6z M270.9,270.6l4,0.6l68,27.4c9.6,3.9,14.1,13.9,10.3,23.4s-14.4,14.1-24,10.3
+            l-68-26.9l-2.3-1.7C266.1,294.4,270.7,282.7,270.9,270.6z M259.4,346c2.4,0,5,0.2,7.4,1.1l24.6,9.7l24,9.7l2.3,0.6
+            c9.6,3.9,14.1,14.4,10.3,24c-2.8,7-9,11.1-16,11.4h-0.6c-2.4,0.1-5-0.2-7.4-1.1l-50.9-20.6c-9.6-3.9-14.1-14.4-10.3-24
+            c1.9-4.8,5.4-7.9,9.7-9.7C254.7,346.2,257,346,259.4,346z"/>
+        </svg>
+      </div>
+    ),
+    bgColor: "bg-pink-500/20",
+    borderColor: "border-pink-500/50",
+    textColor: "text-pink-400",
+  },
+]
+
+
+
+export default function RockPaperScissorsGame() {
+  const { wallet, publicKey, connected, disconnect } = useWallet()
+  const { connection } = useConnection()
+  const [stakeAmount, setStakeAmount] = useState("0.1")
+  const [walletBalance, setWalletBalance] = useState(0)
+  const [currentView, setCurrentView] = useState<"lobby" | "game" | "leaderboard">("lobby")
+  const [selectedCurrency, setSelectedCurrency] = useState<"points" | "sol">("points")
+  const [isDisconnectModalOpen, setIsDisconnectModalOpen] = useState(false)
+  const [showRoundResult, setShowRoundResult] = useState(true)
+  const [roundResultCountdown, setRoundResultCountdown] = useState(5)
+
+  const [gameError, setGameError] = useState<string | null>(null)
+  const [matchmakingTimeout, setMatchmakingTimeout] = useState<NodeJS.Timeout | null>(null)
+  const [isCreatingGame, setIsCreatingGame] = useState(false)
+  const [creatingGameType, setCreatingGameType] = useState<'private' | 'public'>('private')
+  const [isRestoringSession, setIsRestoringSession] = useState(false)
+  const [ignoreSocketEvents, setIgnoreSocketEvents] = useState(false)
+  const [isFinalizingGame, setIsFinalizingGame] = useState(false)
+
+  // Join game dialog state
+  const [joinDialogOpen, setJoinDialogOpen] = useState(false)
+  const [pendingJoinGameId, setPendingJoinGameId] = useState<string | null>(null)
+  const [joinGameLoading, setJoinGameLoading] = useState(false)
+  
+  // Quit game confirmation dialog state
+  const [showQuitDialog, setShowQuitDialog] = useState(false)
+  
+  // Opponent found state
+  const [opponentFound, setOpponentFound] = useState(false)
+
+  // User profile and points management
+  const { profile, loading: profileLoading, updating: profileUpdating, error: profileError, refreshProfile, optimisticPointsUpdate, hasEnoughPoints } = useUserProfile()
+
+  // Leaderboard data
+  const { leaderboard, userRank, loading: leaderboardLoading, error: leaderboardError, refreshLeaderboard } = useLeaderboard(50)
+
+  // Stats data
+  const { stats, loading: statsLoading, error: statsError, refreshStats } = useStats()
+
+  // Auto-switch to SOL if insufficient points - but only when not actively creating/joining games
+  useEffect(() => {
+    if (profile && selectedCurrency === "points" && !hasEnoughPoints(100) && 
+        !isCreatingGame && !joinGameLoading) {
+      console.log('🔄 Auto-switching to SOL due to insufficient points:', profile.points_balance)
+      setSelectedCurrency("sol")
+    }
+  }, [profile, selectedCurrency, hasEnoughPoints, isCreatingGame, joinGameLoading])
+
+  // Game management with real WebSocket integration
+  const {
+    gameState,
+    isInGame,
+    createGame,
+    joinGame,
+    makeMove,
+    startGame,
+    leaveGame,
+    resetGameState,
+    isConnected,
+    socket,
+  } = useGame({
+    onGameCreated: (gameId, inviteLink) => {
+      console.log('🎮 Game created callback:', gameId, 'inviteLink:', inviteLink)
+      
+      // Only ignore if we're restoring a session
+      if (isRestoringSession) {
+        console.log('🚫 Ignoring game_created event - restoring session')
+        return
+      }
+      
+      // Update game link and clear creating state
+      const gameUrl = `${window.location.origin}/game/${gameId}`
+      setGameLink(gameUrl)
+      setIsCreatingGame(false)
+      setGameError(null)
+      
+      // Switch to game view
+      console.log('🎯 Switching to game view after successful creation')
+        setCurrentView("game")
+    },
+    onGameJoined: (gameState) => {
+      console.log('✅ Joined game successfully:', gameState)
+      
+      // Only ignore if we're restoring a session
+      if (isRestoringSession) {
+        console.log('🚫 Ignoring game_joined event - restoring session')
+        return
+      }
+      
+      // Clear any matchmaking timeout
+      if (matchmakingTimeout) {
+        clearTimeout(matchmakingTimeout)
+        setMatchmakingTimeout(null)
+      }
+      
+      // Clear any errors
+      setGameError(null)
+      
+      // Close join dialog if it's open
+      if (joinDialogOpen) {
+        console.log('🚪 Closing join dialog after successful join')
+        setJoinDialogOpen(false)
+        setPendingJoinGameId(null)
+        setJoinGameLoading(false)
+        setGameIdInput('')
+      }
+      
+      // Switch to game view
+      setCurrentView("game")
+    },
+    onGameStarted: () => {
+      console.log('Game has started!')
+      
+      // Only ignore if we're restoring a session
+      if (isRestoringSession) {
+        console.log('🚫 Ignoring game_started event - restoring session')
+        return
+      }
+      
+      // Switch to game view
+      setCurrentView("game")
+    },
+    onGameFinished: (gameData) => {
+      console.log('Game finished! Updating points balance...', gameData)
+      
+      // Check if this was a points game
+      if (selectedCurrency === "points" && profile) {
+        const myPlayerId = publicKey?.toString().slice(0, 8)
+        
+        // Handle different winner data formats
+        let winnerPlayerId = null
+        if (gameData.winner?.playerId) {
+          winnerPlayerId = gameData.winner.playerId
+        } else {
+          winnerPlayerId = gameData.winner
+        }
+        
+        const didIWin = winnerPlayerId === myPlayerId
+        
+        console.log('🎮 Points game finished:', {
+          myPlayerId,
+          winnerPlayerId,
+          didIWin,
+          currentBalance: profile.points_balance
+        })
+        
+        // For points games, wait a moment for backend to process the completion,
+        // then refresh profile to get accurate database state
+        setTimeout(() => {
+          console.log('🔄 Refreshing profile after backend processing...')
+          refreshProfile()
+          refreshLeaderboard()
+        }, 1500) // Give backend time to process the game completion
+      } else if (selectedCurrency === "sol" && gameState.gameId && connected) {
+        // For SOL games, the finalization happens automatically on the blockchain
+        console.log('🔗 SOL game completed - finalization handled on-chain')
+        
+        // Just refresh profile to get any updates
+        setTimeout(() => {
+          refreshProfile()
+          refreshLeaderboard()
+        }, 3000) // Wait 3 seconds for potential blockchain updates
+      } else {
+        // For other cases, just refresh profile to get any updates
+        refreshProfile()
+        refreshLeaderboard()
+      }
+    },
+    onError: (error) => {
+      console.error('Game error:', error)
+      setGameError(error)
+    },
+  })
+
+  // Anchor program hook for on-chain operations
+  const { finalizeGame: anchorFinalizeGame } = useAnchorProgram({
+    onSuccess: (message) => {
+      console.log('✅ Smart contract success:', message)
+      // Refresh balance and profile after successful finalization
+      setTimeout(() => {
+        refreshProfile()
+        refreshLeaderboard()
+      }, 2000)
+    },
+    onError: (error) => {
+      console.error('❌ Smart contract error:', error)
+      setIsFinalizingGame(false)
+    }
+  })
+
+  // Add effect to handle round result visibility and countdown
+  useEffect(() => {
+    if (gameState.gameStatus === "round-result") {
+      setShowRoundResult(true)
+      setRoundResultCountdown(5)
+      let interval: NodeJS.Timeout | null = null
+      const timer = setTimeout(() => {
+        setShowRoundResult(false)
+        if (interval) clearInterval(interval)
+      }, 5000)
+      interval = setInterval(() => {
+        setRoundResultCountdown((prev) => (prev > 1 ? prev - 1 : 1))
+      }, 1000)
+      return () => {
+        clearTimeout(timer)
+        if (interval) clearInterval(interval)
+      }
+    }
+  }, [gameState.gameStatus])
+
+  const [gameLink, setGameLink] = useState("")
+  const [gameIdInput, setGameIdInput] = useState("")
+
+  const disconnectWallet = () => {
+    disconnect()
+    setWalletBalance(0)
+    setIsDisconnectModalOpen(false)
+  }
+
+  // Real game state from WebSocket integration
+  // Gamestate now comes from useGame hook above
+
+  // Countdown timer is now handled by the backend WebSocket events
+
+  // Fetch wallet balance when connected
+  useEffect(() => {
+    const fetchBalance = async () => {
+      console.log('🔍 Checking wallet state:')
+      console.log('   - connected:', connected)
+      console.log('   - publicKey:', publicKey?.toString())
+      
+      if (connected && publicKey) {
+        try {
+          console.log('📡 Fetching balance from devnet...')
+          const balance = await connection.getBalance(publicKey)
+          const solBalance = balance / LAMPORTS_PER_SOL
+          setWalletBalance(solBalance)
+          console.log('💰 Fetched real devnet balance:', solBalance, 'SOL')
+          console.log('   - Raw balance (lamports):', balance)
+        } catch (error) {
+          // Graceful network error handling
+          const errMsg = (error && (error as any).message) ? (error as any).message : String(error);
+          if (error instanceof TypeError && errMsg.includes('NetworkError')) {
+            console.warn('⚠️ Network unavailable: could not fetch wallet balance. Showing 0 SOL.')
+          } else {
+            console.warn('⚠️ Failed to fetch wallet balance:', errMsg)
+          }
+          setWalletBalance(0)
+        }
+      } else {
+        console.log('❌ Not connected or no publicKey, setting balance to 0')
+        setWalletBalance(0)
+    }
+    }
+    fetchBalance()
+  }, [connected, publicKey, connection])
+
+  // Function to refresh balance manually
+  const refreshBalance = async () => {
+    if (connected && publicKey) {
+      try {
+        console.log('🔄 Manually refreshing balance...')
+        const balance = await connection.getBalance(publicKey)
+        const solBalance = balance / LAMPORTS_PER_SOL
+        setWalletBalance(solBalance)
+        console.log('💰 Refreshed balance:', solBalance, 'SOL')
+      } catch (error) {
+        console.error('❌ Failed to refresh balance:', error)
+      }
+    }
+  }
+
+  // Track successful wallet connections for auto-connect feature
+  useEffect(() => {
+    if (connected && publicKey) {
+      // Mark that user has connected before for future auto-connect
+      localStorage.setItem('wallet_has_connected_before', 'true')
+      console.log('✅ Wallet connected successfully, enabled auto-connect for future visits')
+      
+      // Refresh profile when wallet connects to ensure latest data
+      refreshProfile()
+    } else if (!connected) {
+      // Clear any updating state when wallet disconnects
+      console.log('🔌 Wallet disconnected, clearing profile state')
+    }
+  }, [connected, publicKey]) // Removed refreshProfile from deps
+
+  // Refresh profile when WebSocket reconnects (in case we missed updates)
+  // Only refresh once when reconnecting, not on every render
+  const [hasReconnected, setHasReconnected] = useState(false)
+  useEffect(() => {
+    if (isConnected && connected && publicKey && !hasReconnected) {
+      console.log('🔌 WebSocket reconnected, refreshing profile to sync latest data')
+      refreshProfile()
+      setHasReconnected(true)
+    } else if (!isConnected) {
+      setHasReconnected(false)
+    }
+  }, [isConnected, connected, publicKey]) // Removed profile and refreshProfile from deps
+
+  // Auto-join game from URL redirect - ONLY when not creating new games
+  useEffect(() => {
+    // Simple check, only skip if creating a new game
+    if (isCreatingGame) {
+      console.log('🚫 Skipping auto-join check - creating new game')
+      return
+    }
+
+    const checkAutoJoin = () => {
+      const autoJoinGameId = sessionStorage.getItem('autoJoinGameId')
+      const skipConfirmation = sessionStorage.getItem('autoJoinSkipConfirmation')
+      
+      if (autoJoinGameId) {
+        console.log('🔗 Found auto-join game from URL:', autoJoinGameId)
+        console.log('   - Skip confirmation:', skipConfirmation === 'true')
+        
+        // Clear the session storage flags
+        sessionStorage.removeItem('autoJoinGameId')
+        sessionStorage.removeItem('autoJoinSkipConfirmation')
+        
+        // Set the game ID input
+        setGameIdInput(autoJoinGameId)
+        
+        if (skipConfirmation === 'true') {
+          console.log('   - Will auto-join when wallet connects (skip confirmation)')
+        } else {
+          console.log('   - Will show join dialog when wallet connects')
+        }
+      }
+    }
+
+    // Check on mount and when connection status changes
+    checkAutoJoin()
+  }, [connected, isConnected, isCreatingGame])
+
+  // Auto-join game when wallet and game socket connect (for URL redirects)
+  useEffect(() => {
+    // Simple check, only skip if creating a new game
+    if (isCreatingGame) {
+      console.log('🚫 Skipping auto-join on connect - creating new game')
+      return
+    }
+
+    if (connected && isConnected && gameIdInput && !isInGame && !joinDialogOpen && currentView === "lobby") {
+      const skipConfirmation = sessionStorage.getItem('autoJoinSkipConfirmation')
+      
+      if (skipConfirmation === 'true') {
+        console.log('🔗 Wallet and game connected, auto-joining game:', gameIdInput)
+        // Auto-join directly without confirmation for shared links
+        sessionStorage.removeItem('autoJoinSkipConfirmation') // Clean up
+      joinGame(gameIdInput)
+        setGameIdInput('') // Clear the input
+      } else {
+        console.log('🔗 Wallet and game connected, showing join dialog for:', gameIdInput)
+        // Show the confirmation dialog for manual joins
+        setPendingJoinGameId(gameIdInput)
+        setJoinDialogOpen(true)
+      }
+    }
+  }, [connected, isConnected, gameIdInput, isInGame, joinDialogOpen, currentView, joinGame, isCreatingGame])
+
+  // Clear session if user manually navigates to lobby or other views
+  useEffect(() => {
+    if (currentView === "lobby" || currentView === "leaderboard") {
+      const savedSession = localStorage.getItem('rps_game_session')
+      if (savedSession && !isRestoringSession) {
+        console.log('🗑️ User navigated away from game, clearing session')
+        localStorage.removeItem('rps_game_session')
+      }
+      
+
+    }
+  }, [currentView, isRestoringSession])
+
+  // Immediately clear session if user is starting fresh (e.g., from URL)
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search)
+    const freshStart = urlParams.get('fresh') === 'true' || window.location.pathname === '/'
+    
+    // Also check if this is a direct navigation to root (no referrer indicates fresh browser load)
+    const isDirectNavigation = !document.referrer || document.referrer.indexOf(window.location.hostname) === -1
+    
+    if ((freshStart || isDirectNavigation) && localStorage.getItem('rps_game_session')) {
+      console.log('🗑️ Clearing existing session for fresh start or direct navigation')
+      localStorage.removeItem('rps_game_session')
+      sessionStorage.removeItem('autoJoinGameId')
+      sessionStorage.removeItem('autoJoinSkipConfirmation')
+      
+      // Reset any restoration state immediately
+      setIsRestoringSession(false)
+      setIgnoreSocketEvents(false)
+    }
+  }, [])
+
+  // Session persistence - save game state to localStorage (only for active games)
+  useEffect(() => {
+    if (gameState.gameId && 
+        currentView === "game" && 
+        (gameState.gameStatus === "playing" || 
+         gameState.gameStatus === "waiting" || 
+         gameState.gameStatus === "round-result")) {
+      const sessionData = {
+        gameState,
+        currentView,
+        gameLink,
+        timestamp: Date.now()
+      }
+      localStorage.setItem('rps_game_session', JSON.stringify(sessionData))
+      console.log('💾 Saved active game session to localStorage')
+    } else if (gameState.gameStatus === "game-over" || gameState.gameStatus === "lobby") {
+      // Clear session when game ends or we're in lobby
+      localStorage.removeItem('rps_game_session')
+      console.log('🗑️ Cleared game session - game ended or in lobby')
+    }
+  }, [gameState, currentView, gameLink])
+
+  // Session persistence - check for saved session immediately on mount
+  useEffect(() => {
+    const checkSavedSession = () => {
+      try {
+        // Simple check, only skip if creating a new game
+        if (isCreatingGame) {
+          console.log('🚫 Skipping session restoration - creating new game')
+          return null
+        }
+
+        // Also check for URL parameters that indicate fresh start
+        const urlParams = new URLSearchParams(window.location.search)
+        const freshStart = urlParams.get('fresh') === 'true' || window.location.pathname === '/'
+        
+        if (freshStart) {
+          console.log('🗑️ Fresh start detected, clearing any existing session')
+          localStorage.removeItem('rps_game_session')
+          return null
+        }
+
+        const savedSession = localStorage.getItem('rps_game_session')
+        if (savedSession) {
+          const sessionData = JSON.parse(savedSession)
+          
+          // Check if session is not too old (24 hours)
+          const sessionAge = Date.now() - sessionData.timestamp
+          const maxAge = 24 * 60 * 60 * 1000 // 24 hours
+          
+          if (sessionAge < maxAge && sessionData.gameState.gameId) {
+            console.log('🔄 Found saved game session, checking if game is still active...')
+            console.log('   - Game ID:', sessionData.gameState.gameId)
+            console.log('   - Saved View:', sessionData.currentView)
+            console.log('   - Session Age:', Math.round(sessionAge / 1000 / 60), 'minutes')
+            
+            // Only restore if we have a valid game ID and the game was actually active
+            if (sessionData.gameState.gameId && 
+                sessionData.currentView === "game" && 
+                (sessionData.gameState.gameStatus === "playing" || 
+                 sessionData.gameState.gameStatus === "waiting" ||
+                 sessionData.gameState.gameStatus === "round-result")) {
+              
+              console.log('🔄 Session appears valid, will attempt to restore...')
+            setIsRestoringSession(true)
+            
+            // Restore basic state immediately
+            setGameLink(sessionData.gameLink || '')
+            
+            return sessionData.gameState.gameId
+          } else {
+              console.log('🗑️ Session invalid - game was not in active state')
+              localStorage.removeItem('rps_game_session')
+            }
+          } else {
+            console.log('🗑️ Clearing old or invalid session data')
+            localStorage.removeItem('rps_game_session')
+          }
+        }
+      } catch (error) {
+        console.error('❌ Error checking saved session:', error)
+        localStorage.removeItem('rps_game_session')
+      }
+      return null
+    }
+
+    checkSavedSession()
+  }, [isCreatingGame])
+
+  // Auto-rejoin game when wallet and socket connect and we have a saved session
+  useEffect(() => {
+    const attemptRejoin = async () => {
+      try {
+        // Simple check, only skip if creating a new game
+        if (isCreatingGame) {
+          console.log('🚫 Skipping auto-rejoin - creating new game')
+          setIsRestoringSession(false)
+          return
+        }
+
+        // Skip if user has clicked any game creation/joining buttons recently
+        const urlParams = new URLSearchParams(window.location.search)
+        const isFreshPageLoad = !urlParams.get('restored') && window.location.pathname === '/'
+        
+        if (isFreshPageLoad && !isRestoringSession) {
+          console.log('🏠 Fresh page load detected, skipping auto-rejoin to let user choose')
+          return
+        }
+
+        const savedSession = localStorage.getItem('rps_game_session')
+        if (savedSession && connected && isConnected && !isInGame && isRestoringSession) {
+          const sessionData = JSON.parse(savedSession)
+          
+          if (sessionData.gameState.gameId) {
+            console.log('🔗 Attempting to rejoin saved game:', sessionData.gameState.gameId)
+            
+            // First, validate the game still exists on the server
+            try {
+              const response = await fetch(`http://localhost:3001/api/games/${sessionData.gameState.gameId}`)
+              const data = await response.json()
+              
+              if (data.success && data.game) {
+                console.log('✅ Game still exists on server, rejoining...')
+                // For session restoration, we can auto-join since user was already in the game
+            await joinGame(sessionData.gameState.gameId)
+                setCurrentView("game")
+              } else {
+                console.log('❌ Game no longer exists on server')
+                localStorage.removeItem('rps_game_session')
+                setCurrentView("lobby")
+              }
+            } catch (error) {
+              console.error('❌ Error validating game on server:', error)
+              localStorage.removeItem('rps_game_session')
+              setCurrentView("lobby")
+            }
+            
+            setIsRestoringSession(false)
+          }
+        }
+      } catch (error) {
+        console.error('❌ Error rejoining game:', error)
+        setIsRestoringSession(false)
+        localStorage.removeItem('rps_game_session')
+        setCurrentView("lobby")
+      }
+    }
+
+    // Set a timeout to stop restoring if it takes too long
+    const timeout = setTimeout(() => {
+      if (isRestoringSession) {
+        console.log('⏰ Session restoration timeout, going to lobby...')
+        setIsRestoringSession(false)
+        setCurrentView("lobby")
+        localStorage.removeItem('rps_game_session')
+      }
+    }, 10000) // 10 seconds timeout
+
+    attemptRejoin()
+
+    return () => clearTimeout(timeout)
+  }, [connected, isConnected, isInGame, isRestoringSession, joinGame, isCreatingGame])
+
+  const handleFloatingWalletClick = () => {
+    // Floating wallet icons are now decorative only
+    // Actual connection happens through the StyledWalletButton
+  }
+
+
+
+  const handleCreateGame = () => {
+    console.log('🎮 CREATE GAME CLICKED')
+    console.log('   - Socket connected:', isConnected)
+    console.log('   - Wallet connected:', connected)
+    console.log('   - Current view:', currentView)
+    console.log('   - Is creating game:', isCreatingGame)
+    
+    // Basic validation
+    if (!connected || !publicKey) {
+      setGameError('Please connect your wallet first')
+      return
+    }
+    
+    if (!isConnected) {
+      setGameError('Not connected to game server. Please wait and try again.')
+      return
+    }
+    
+    if (selectedCurrency === "points" && !hasEnoughPoints(100)) {
+        setGameError('Insufficient points. You need 100 points to play.')
+      return
+  }
+    
+    if (selectedCurrency === "sol") {
+    const stake = Number.parseFloat(stakeAmount)
+      if (isNaN(stake) || stake < 0) {
+      setGameError('Please enter a valid stake amount')
+      return
+      }
+    }
+    
+    console.log('✅ All validation passed')
+    
+    // Clear errors and set creating state
+    setGameError(null)
+    setIsCreatingGame(true)
+    
+    // Create the game
+    const stake = selectedCurrency === "points" ? 100 : Number.parseFloat(stakeAmount)
+    console.log('🎮 Calling createGame with:', { stake, type: creatingGameType, currency: selectedCurrency })
+    
+    createGame(stake, creatingGameType, selectedCurrency)
+  }
+
+  const joinGameById = () => {
+    console.log('🎯 Joining game by ID:', gameIdInput)
+    
+    if (!gameIdInput.trim()) {
+      setGameError('Please enter a game ID')
+      return
+    }
+    
+    // Clear error and show join dialog for confirmation
+    setGameError(null)
+    setPendingJoinGameId(gameIdInput.trim())
+    setJoinDialogOpen(true)
+  }
+
+  const joinRandomGame = () => {
+    console.log('🎯 Starting random match')
+    
+    // Validate FIRST
+    if (!connected || !publicKey) {
+      setGameError('Please connect your wallet first')
+      return
+    }
+
+    if (selectedCurrency === "points" && !hasEnoughPoints(100)) {
+        setGameError('Insufficient points. You need 100 points to play.')
+        return
+      }
+
+    const stake = selectedCurrency === "points" ? 100 : Number.parseFloat(stakeAmount)
+    if (selectedCurrency === "sol" && (isNaN(stake) || stake < 0)) {
+      setGameError('Please enter a valid stake amount')
+      return
+    }
+    
+    // Clear storage and reset states
+    localStorage.removeItem('rps_game_session')
+    sessionStorage.removeItem('autoJoinGameId')
+    sessionStorage.removeItem('autoJoinSkipConfirmation')
+    setGameError(null)
+    
+    // Clear any existing timeout
+    if (matchmakingTimeout) {
+      clearTimeout(matchmakingTimeout)
+      setMatchmakingTimeout(null)
+    }
+    
+    // Reset states for clean matchmaking
+    setOpponentFound(false)
+    setShowQuitDialog(false)
+    setJoinDialogOpen(false)
+    setPendingJoinGameId(null)
+    setJoinGameLoading(false)
+    setGameIdInput('')
+    setGameLink('')
+    setIgnoreSocketEvents(false)
+    setIsRestoringSession(false)
+
+    console.log('🎯 Starting matchmaking with stake:', stake, 'currency:', selectedCurrency)
+    
+    // Start matchmaking
+    joinGame(undefined, selectedCurrency, stake)
+    
+    // Switch to game view to show waiting state
+    setCurrentView("game")
+    
+    // Set timeout for matchmaking
+    const timeout = setTimeout(() => {
+      if (currentView === "game" && gameState.gameStatus === "waiting") {
+        console.log('🕒 Matchmaking timeout')
+        setGameError('Matchmaking timeout. Please try again.')
+        resetGame()
+      }
+    }, 30000)
+    setMatchmakingTimeout(timeout)
+  }
+
+  const { submitMove, leaveGame: simpleLeaveGame } = useSimpleMove()
+
+  // Handle manual SOL game finalization
+  const handleManualFinalization = async () => {
+    if (!gameState.gameId || !connected || isFinalizingGame) {
+      console.error('Cannot finalize: missing requirements or already finalizing')
+      return
+    }
+
+    console.log('🔗 Starting manual SOL game finalization:', gameState.gameId)
+    setIsFinalizingGame(true)
+
+    try {
+      const success = await anchorFinalizeGame(gameState.gameId)
+      if (success) {
+        console.log('✅ SOL game finalized successfully!')
+        // Success callback will handle UI updates and balance refresh
+      }
+    } catch (error) {
+      console.error('❌ Failed to finalize SOL game:', error)
+      setIsFinalizingGame(false)
+    }
+  }
+
+  const handleMakeMove = (move: string) => {
+    console.log('🎯 Move button clicked:', move)
+    console.log('🔍 Debug info:')
+    console.log('   - gameState.gameId:', gameState.gameId)
+    console.log('   - gameState.gameStatus:', gameState.gameStatus)
+    console.log('   - isConnected:', isConnected)
+    console.log('   - connected (wallet):', connected)
+    console.log('   - publicKey:', publicKey?.toString())
+    console.log('   - player1.currentMove:', gameState.player1?.currentMove)
+    console.log('   - isInGame:', isInGame)
+    
+    // Use only the main game socket (now reliable)
+    makeMove(move as 'rock' | 'paper' | 'scissors')
+    
+    // Also use simple move as fallback safety net
+    if (gameState.gameId && publicKey) {
+      const playerId = publicKey.toString().slice(0, 8)
+      console.log('🔥 Using simple move fallback as safety net')
+      submitMove(gameState.gameId, playerId, move)
+    }
+  }
+
+  const handleQuitGame = () => {
+    console.log('🚪 Player quitting game with confirmation')
+    setShowQuitDialog(false) // Close dialog
+    
+    if (!gameState.gameId || !publicKey) {
+      console.error('Cannot quit: missing game ID or wallet')
+      resetGame()
+      return
+    }
+
+    const playerId = publicKey.toString().slice(0, 8)
+    
+    try {
+      // Use the reliable fresh socket method FIRST
+      console.log('🚪 Using fresh socket to leave game (primary)')
+      simpleLeaveGame(gameState.gameId, playerId)
+      
+      console.log('✅ Successfully quit game')
+      
+      // For points games, the backend will handle the database updates automatically
+      // when processing the quit/abandonment. We just need to refresh after a delay.
+      if (gameState.currency === 'points' && profile) {
+        setTimeout(() => {
+          console.log('🔄 Refreshing profile after quit processing...')
+          refreshProfile()
+          refreshLeaderboard()
+        }, 1500) // Give backend time to process the quit
+      }
+      
+      // Use resetGame for proper cleanup
+      resetGame()
+    } catch (error) {
+      console.error('⚠️ Error quitting game:', error)
+      // Still reset even if server communication failed
+      resetGame()
+    }
+  }
+
+  const determineWinner = (move1: string, move2: string) => {
+    if (move1 === move2) return "draw"
+    if (
+      (move1 === "rock" && move2 === "scissors") ||
+      (move1 === "paper" && move2 === "rock") ||
+      (move1 === "scissors" && move2 === "paper")
+    ) {
+      return "player1"
+    }
+    return "player2"
+  }
+
+  const copyGameLink = () => {
+    navigator.clipboard.writeText(gameLink)
+  }
+
+  const getConnectedWalletName = () => {
+    return wallet?.adapter.name || "Wallet"
+  }
+
+  // Handle join game confirmation
+  const handleJoinGameConfirm = async () => {
+    if (!pendingJoinGameId) return
+    
+    setJoinGameLoading(true)
+    try {
+      console.log('🎯 Confirmed joining game:', pendingJoinGameId)
+      await joinGame(pendingJoinGameId)
+      // Note: Don't close dialog here - let onGameJoined callback handle it
+      console.log('🎯 Join game request sent, waiting for response...')
+    } catch (error) {
+      console.error('❌ Error joining game:', error)
+      setGameError('Failed to join game. Please try again.')
+      setJoinGameLoading(false)
+    }
+    // Don't set loading to false here - let the game joined callback handle cleanup
+  }
+
+  // Handle join game dialog close
+  const handleJoinGameClose = () => {
+    setJoinDialogOpen(false)
+    setPendingJoinGameId(null)
+    setJoinGameLoading(false)
+  }
+
+  // Get game data for join dialog
+  const getJoinGameData = async () => {
+    if (!pendingJoinGameId) return null
+    
+    try {
+      const response = await fetch(`http://localhost:3001/api/games/${pendingJoinGameId}`)
+      const data = await response.json()
+      
+      if (data.success && data.game) {
+        return {
+          gameId: data.game.gameId,
+          currency: data.game.currency,
+          stakeAmount: data.game.stakeAmount,
+          totalPot: data.game.totalPot,
+          gameType: data.game.gameType
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching game data for dialog:', error)
+    }
+    
+    return null
+  }
+
+  // Get join game data for dialog
+  const [joinGameData, setJoinGameData] = useState<any>(null)
+  
+  useEffect(() => {
+    if (joinDialogOpen && pendingJoinGameId) {
+      getJoinGameData().then(setJoinGameData)
+    } else {
+      setJoinGameData(null)
+    }
+  }, [joinDialogOpen, pendingJoinGameId])
+
+  const resetGame = () => {
+    console.log('🔄 RESET GAME - Back to lobby')
+    
+    // 1. Clear timeouts
+    if (matchmakingTimeout) {
+      clearTimeout(matchmakingTimeout)
+      setMatchmakingTimeout(null)
+    }
+    
+    // 2. First leave the game (if in one) to clean up server state
+    if (gameState.gameId) {
+      leaveGame()
+    }
+    
+    // 3. Disconnect and reconnect socket to clear all server state
+    socket.disconnect()
+    
+    // 4. Use a short timeout to ensure disconnect completes before reconnect
+    setTimeout(() => {
+      socket.connect()
+      
+      // 5. Clear storage
+      localStorage.removeItem('rps_game_session')
+      sessionStorage.removeItem('autoJoinGameId')
+      sessionStorage.removeItem('autoJoinSkipConfirmation')
+      
+      // 6. Reset game state (this clears gameId)
+      resetGameState()
+      
+      // 7. Reset ALL UI state
+      setCurrentView("lobby")
+      setGameError(null)
+      setIsRestoringSession(false)
+      setIsCreatingGame(false)
+      setCreatingGameType('private')
+      setGameLink("")
+      setGameIdInput("")
+      setJoinDialogOpen(false)
+      setPendingJoinGameId(null)
+      setJoinGameLoading(false)
+      setJoinGameData(null)
+      setOpponentFound(false)
+      setShowQuitDialog(false)
+      setIgnoreSocketEvents(false)
+      
+      console.log('✅ RESET COMPLETE - Ready for new game')
+    }, 300)
+  }
+
+  const getRankIcon = (rank: number) => {
+    if (rank === 1) return <Crown className="w-6 h-6 text-yellow-400" />
+    if (rank === 2) return <Medal className="w-6 h-6 text-gray-400" />
+    if (rank === 3) return <Medal className="w-6 h-6 text-orange-400" />
+    return <Star className="w-5 h-5 text-purple-400" />
+  }
+
+  // Share on X helper functions
+  const shareLeaderboardAchievement = () => {
+    if (!userRank || !connected) return
+    
+    const rank = userRank.rank
+    const wins = userRank.wins
+    const points = userRank.total_points_earned
+    const winRate = userRank.win_rate_percentage
+    
+    const getText = () => {
+      if (rank === 1) {
+        return `🏆 I'm #1 on the RPS MagicBlock leaderboard! ${wins} wins, ${points} points earned with ${winRate}% win rate! 🎯`
+      } else if (rank <= 3) {
+        return `🥉 Ranked #${rank} on the RPS MagicBlock leaderboard! ${wins} wins, ${points} points earned with ${winRate}% win rate! 🎮`
+      } else if (rank <= 10) {
+        return `⭐ Top 10 player on RPS MagicBlock! Ranked #${rank} with ${wins} wins and ${winRate}% win rate! 🚀`
+      } else {
+        return `🎯 Climbing the RPS MagicBlock leaderboard! Ranked #${rank} with ${wins} wins and ${winRate}% win rate! 🎮`
+      }
+    }
+    
+    const shareText = getText() + "\n\nPlay Rock Paper Scissors on Solana blockchain! ⚡\n\n#RPS #Solana #Web3Gaming #MagicBlock"
+    const shareUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}`
+    window.open(shareUrl, '_blank')
+  }
+
+  const shareGameResult = (isVictory: boolean) => {
+    if (!connected || !profile) return
+    
+    const currency = gameState.currency || selectedCurrency
+    const stake = gameState.stakeAmount || stakeAmount
+    
+    const getText = () => {
+      if (isVictory) {
+        if (currency === 'points') {
+          return `🎉 Victory! Just won an RPS game and earned 100 points! 💪\n\nTotal wins: ${profile.wins + 1} | Win rate: ${Math.round(((profile.wins + 1) / (profile.total_games + 1)) * 100)}% 🔥`
+                 } else {
+           const winnings = (parseFloat(String(stake)) * 2 * 0.95).toFixed(3)
+           return `🎉 Victory! Just won ${winnings} SOL in RPS MagicBlock! 💰\n\nTotal wins: ${profile.wins + 1} | Win rate: ${Math.round(((profile.wins + 1) / (profile.total_games + 1)) * 100)}% 🔥`
+         }
+      } else {
+        if (currency === 'points') {
+          return `😤 Lost this round but I'm not giving up! 100 points down but still fighting! 💪\n\nCurrent stats: ${profile.wins} wins | ${profile.total_games + 1} games played 🎮`
+        } else {
+          return `😤 Lost ${stake} SOL this round but the comeback starts now! 💪\n\nCurrent stats: ${profile.wins} wins | ${profile.total_games + 1} games played 🎮`
+        }
+      }
+    }
+    
+    const shareText = getText() + "\n\nJoin me on RPS MagicBlock - Rock Paper Scissors on Solana! ⚡\n\n#RPS #Solana #Web3Gaming #MagicBlock"
+    const shareUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}`
+    window.open(shareUrl, '_blank')
+  }
+
+  // Show loading screen while restoring session
+  if (isRestoringSession) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 text-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <h2 className="text-xl font-bold text-purple-400 mb-2">Restoring Game Session...</h2>
+          <p className="text-gray-400 mb-6">Please wait while we reconnect you to your game</p>
+          
+          {/* Emergency escape button */}
+          <Button
+            onClick={() => {
+              console.log('🚨 Emergency session clear requested by user')
+              setIsRestoringSession(false)
+              resetGame()
+            }}
+            variant="outline"
+            className="border-red-500/50 text-red-300 hover:bg-red-500/10 hover:border-red-400 bg-transparent"
+          >
+            Cancel & Go to Lobby
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  if (currentView === "leaderboard") {
+    return (
+      <div
+        className="h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 text-white relative flex flex-col"
+        style={{
+          overscrollBehavior: "none",
+          overscrollBehaviorY: "none",
+          touchAction: "pan-y",
+          overflow: "hidden",
+        }}
+      >
+        {/* Background Effects */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute inset-0 bg-gradient-to-br from-purple-900/10 via-transparent to-blue-900/10" />
+          <div className="absolute top-20 left-20 w-32 h-32 bg-gradient-to-r from-purple-500/10 to-pink-500/10 rounded-full blur-3xl animate-pulse" />
+          <div className="absolute bottom-20 right-20 w-40 h-40 bg-gradient-to-r from-blue-500/10 to-cyan-500/10 rounded-full blur-3xl animate-pulse delay-1000" />
+        </div>
+
+        {/* Header */}
+        <header className="relative z-30 backdrop-blur-xl bg-gray-900/20 border-b border-gray-700/40 p-4 flex-shrink-0">
+          <div className="flex items-center justify-between max-w-6xl mx-auto">
+            <div className="w-32"></div>
+
+            <div className="flex items-center gap-6">
+            <Button
+              onClick={() => {
+                console.log('🏠 Leaderboard back to lobby clicked')
+                resetGame()
+              }}
+              variant="ghost"
+              className="text-gray-400 hover:text-white hover:bg-gray-800/50 transition-all duration-200 rounded-lg px-4 py-2"
+            >
+              ← Back to Lobby
+            </Button>
+
+            <div className="text-center">
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-white to-purple-200 bg-clip-text text-transparent">
+                Leaderboard
+              </h1>
+            </div>
+
+            <Button
+              onClick={refreshLeaderboard}
+              variant="ghost"
+              className="text-gray-400 hover:text-white hover:bg-gray-800/50 transition-all duration-200 rounded-lg px-4 py-2"
+              disabled={leaderboardLoading}
+            >
+              {leaderboardLoading ? 'Loading...' : 'Refresh'}
+            </Button>
+            </div>
+          </div>
+        </header>
+
+        {/* Main Content */}
+        <main className="flex-1 relative z-20 overflow-y-auto" style={{ overscrollBehavior: "none" }}>
+          <div className="p-6 max-w-4xl mx-auto">
+            <div className="space-y-6 pb-8">
+              {/* Loading State */}
+              {leaderboardLoading && (
+                <div className="text-center py-8">
+                  <div className="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                  <p className="text-gray-400">Loading leaderboard...</p>
+                </div>
+              )}
+
+              {/* Error State */}
+              {leaderboardError && (
+                <div className="text-center py-8">
+                  <div className="bg-red-500/20 border border-red-500/50 rounded-lg p-4 max-w-md mx-auto">
+                    <p className="text-red-200">Failed to load leaderboard</p>
+                    <Button 
+                      onClick={refreshLeaderboard}
+                      className="mt-2 bg-red-600 hover:bg-red-700"
+                    >
+                      Try Again
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Top 3 Podium */}
+              {!leaderboardLoading && !leaderboardError && leaderboard.length > 0 && (
+              <div className="grid md:grid-cols-3 gap-6 mb-8">
+                  {leaderboard.slice(0, 3).map((player, index) => (
+                  <Card
+                      key={player.wallet_address}
+                    className={`bg-gray-900/80 backdrop-blur-xl shadow-xl transition-all duration-300 hover:scale-105 ${
+                      index === 0
+                        ? "border-yellow-500/50 order-2 md:order-1"
+                        : index === 1
+                          ? "border-gray-500/50 order-1 md:order-2"
+                          : "border-orange-500/50 order-3"
+                    }`}
+                  >
+                    <CardContent className="p-6 text-center">
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-center">{getRankIcon(player.rank)}</div>
+                        <div>
+                            <h3 className="text-xl font-bold text-white">
+                              {player.wallet_address.slice(0, 6)}...{player.wallet_address.slice(-4)}
+                            </h3>
+                          <div className="text-sm text-gray-400">Rank #{player.rank}</div>
+                        </div>
+                        <div className="space-y-2">
+                          <div className="flex justify-between">
+                            <span className="text-gray-400">Wins:</span>
+                            <span className="text-white font-bold">{player.wins}</span>
+                          </div>
+                          <div className="flex justify-between">
+                              <span className="text-gray-400">Points:</span>
+                              <span className="text-green-400 font-bold">{player.total_points_earned}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-400">Win Rate:</span>
+                              <span className="text-purple-400 font-bold">{player.win_rate_percentage}%</span>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+              )}
+
+              {/* Rest of Leaderboard */}
+              {!leaderboardLoading && !leaderboardError && leaderboard.length > 3 && (
+              <Card className="bg-gray-900/80 backdrop-blur-xl border border-gray-700/50 shadow-xl">
+                <CardContent className="p-6">
+                  <div className="space-y-4">
+                      {leaderboard.slice(3).map((player) => (
+                      <div
+                          key={player.wallet_address}
+                        className="flex items-center justify-between p-4 bg-gray-800/50 rounded-lg border border-gray-700/30 hover:bg-gray-800/70 transition-all duration-200"
+                      >
+                        <div className="flex items-center gap-4">
+                          <div className="flex items-center justify-center w-10 h-10 bg-gray-700/50 rounded-full">
+                            {getRankIcon(player.rank)}
+                          </div>
+                          <div>
+                              <div className="font-bold text-white">
+                                {player.wallet_address.slice(0, 6)}...{player.wallet_address.slice(-4)}
+                              </div>
+                            <div className="text-sm text-gray-400">Rank #{player.rank}</div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-8 text-sm">
+                          <div className="text-center">
+                            <div className="text-gray-400">Wins</div>
+                            <div className="text-white font-bold">{player.wins}</div>
+                          </div>
+                          <div className="text-center">
+                              <div className="text-gray-400">Points</div>
+                              <div className="text-green-400 font-bold">{player.total_points_earned}</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-gray-400">Win Rate</div>
+                              <div className="text-purple-400 font-bold">{player.win_rate_percentage}%</div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+              )}
+
+              {/* User Rank Display */}
+              {connected && userRank && (
+                <Card className="bg-gradient-to-r from-purple-900/80 to-pink-900/80 backdrop-blur-xl border border-purple-500/50 shadow-xl">
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-gradient-to-r from-purple-500/30 to-pink-500/30 rounded-full flex items-center justify-center">
+                          {getRankIcon(userRank.rank)}
+                        </div>
+                        <div>
+                          <div className="font-bold text-white">Your Rank</div>
+                          <div className="text-sm text-purple-200">#{userRank.rank} on the leaderboard</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-6 text-sm">
+                        <div className="text-center">
+                          <div className="text-purple-200">Wins</div>
+                          <div className="text-white font-bold">{userRank.wins}</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-purple-200">Points</div>
+                          <div className="text-green-400 font-bold">{userRank.total_points_earned}</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-purple-200">Win Rate</div>
+                          <div className="text-purple-400 font-bold">{userRank.win_rate_percentage}%</div>
+                        </div>
+                        <div className="text-center">
+                          <Button
+                            onClick={shareLeaderboardAchievement}
+                            size="sm"
+                            variant="ghost"
+                            className="bg-blue-500/20 text-blue-300 hover:bg-blue-500/30 hover:text-blue-200 border border-blue-500/30 hover:border-blue-500/50 transition-all duration-200 px-3 py-2"
+                          >
+                            <Share2 className="w-4 h-4 mr-1" />
+                            Share on X
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Empty State */}
+              {!leaderboardLoading && !leaderboardError && leaderboard.length === 0 && (
+                <div className="text-center py-8">
+                  <div className="w-16 h-16 bg-gray-700/50 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Trophy className="w-8 h-8 text-gray-400" />
+                  </div>
+                  <p className="text-gray-400 mb-2">No players on the leaderboard yet</p>
+                  <p className="text-sm text-gray-500">Be the first to play and claim your spot!</p>
+                </div>
+              )}
+
+              {/* Stats Summary */}
+              <div className="grid md:grid-cols-3 gap-6">
+                <Card className="bg-gray-900/80 backdrop-blur-xl border border-purple-500/30 shadow-xl">
+                  <CardContent className="p-6 text-center">
+                    <div className="w-12 h-12 bg-gradient-to-r from-purple-500/30 to-pink-500/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Trophy className="w-6 h-6 text-purple-400" />
+                    </div>
+                    <div className="text-2xl font-bold text-purple-400 mb-2">
+                      {statsLoading ? '...' : statsError ? '0' : (stats?.totalGames || 0).toLocaleString()}
+                    </div>
+                    <div className="text-gray-300">Total games</div>
+                  </CardContent>
+                </Card>
+
+                <Card className="bg-gray-900/80 backdrop-blur-xl border border-green-500/30 shadow-xl">
+                  <CardContent className="p-6 text-center">
+                    <div className="w-12 h-12 bg-gradient-to-r from-green-500/30 to-emerald-500/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Users className="w-6 h-6 text-green-400" />
+                    </div>
+                    <div className="text-2xl font-bold text-green-400 mb-2">
+                      {leaderboard.length.toLocaleString()}
+                    </div>
+                    <div className="text-gray-300">Registered players</div>
+                  </CardContent>
+                </Card>
+
+                <Card className="bg-gray-900/80 backdrop-blur-xl border border-blue-500/30 shadow-xl">
+                  <CardContent className="p-6 text-center">
+                    <div className="w-12 h-12 bg-gradient-to-r from-blue-500/30 to-cyan-500/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Zap className="w-6 h-6 text-blue-400" />
+                    </div>
+                    <div className="text-2xl font-bold text-blue-400 mb-2">
+                      {statsLoading ? '...' : statsError ? '0' : (stats?.activeGames || 0)}
+                    </div>
+                    <div className="text-gray-300">Active games</div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    )
+  }
+
+  if (currentView === "game") {
+    return (
+      <div
+        className="h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 text-white relative flex flex-col"
+        style={{
+          overscrollBehavior: "none",
+          overscrollBehaviorY: "none",
+          touchAction: "pan-y",
+          overflow: "hidden",
+        }}
+      >
+        {/* Background Effects */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute inset-0 bg-gradient-to-br from-purple-900/10 via-transparent to-blue-900/10" />
+          <div className="absolute top-20 left-20 w-32 h-32 bg-gradient-to-r from-purple-500/10 to-pink-500/10 rounded-full blur-3xl animate-pulse" />
+          <div className="absolute bottom-20 right-20 w-40 h-40 bg-gradient-to-r from-blue-500/10 to-cyan-500/10 rounded-full blur-3xl animate-pulse delay-1000" />
+        </div>
+
+        {/* Header */}
+        <header className="relative z-30 backdrop-blur-xl bg-gray-900/20 border-b border-gray-700/40 p-4">
+          <div className="flex items-center justify-between max-w-6xl mx-auto">
+            {/* Back to Lobby button - show different buttons based on game state */}
+            {(gameState.gameStatus === 'playing' || gameState.gameStatus === 'round-result') ? (
+              // Show "Quit Game" button during active gameplay
+            <Button
+                onClick={() => setShowQuitDialog(true)}
+                variant="ghost"
+                className="text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-all duration-200 rounded-lg px-4 py-2 border border-red-500/20 hover:border-red-500/40"
+              >
+                <LogOut className="w-4 h-4 mr-2" />
+                Quit Game
+              </Button>
+            ) : (
+              // Show "Back to Lobby" button for waiting states
+              <Button
+                onClick={() => {
+                  console.log('🏠 Game back to lobby clicked')
+                  resetGame()
+                }}
+              variant="ghost"
+              className="text-gray-400 hover:text-white hover:bg-gray-800/50 transition-all duration-200 rounded-lg px-4 py-2"
+            >
+              ← Back to Lobby
+            </Button>
+            )}
+            
+            {/* Game Info */}
+            <div className="flex items-center gap-4">
+              <div className="text-center bg-gray-800/50 rounded-lg px-3 py-1 border border-gray-700/50">
+                <div className="text-xs text-gray-400">Game ID</div>
+                <div className="text-sm font-mono text-gray-300">{gameState.gameId}</div>
+              </div>
+              
+              {gameState.stakeAmount > 0 && (
+                <div className="text-center bg-purple-800/50 rounded-lg px-3 py-1 border border-purple-700/50">
+                  <div className="text-xs text-purple-400">Stake</div>
+                  <div className="text-sm font-bold text-purple-300">
+                    {gameState.currency === 'points' ? `${gameState.stakeAmount} pts` : `${gameState.stakeAmount} SOL`}
+              </div>
+                </div>
+              )}
+              
+              <div className="text-center bg-blue-800/50 rounded-lg px-3 py-1 border border-blue-700/50">
+                <div className="text-xs text-blue-400">Round</div>
+                <div className="text-sm font-bold text-blue-300">{gameState.currentRound}</div>
+              </div>
+            </div>
+            
+            {/* Connection Status */}
+            <div className="flex items-center gap-2">
+              <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-400' : 'bg-red-400'}`}></div>
+              <span className="text-xs text-gray-400">
+                {isConnected ? 'Connected' : 'Disconnected'}
+              </span>
+            </div>
+          </div>
+        </header>
+
+        {/* Quit Game Confirmation Dialog */}
+        <Dialog open={showQuitDialog} onOpenChange={setShowQuitDialog}>
+          <DialogContent className="bg-gray-900 border border-gray-700 text-white max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-white flex items-center gap-2 text-xl font-bold">
+                <AlertTriangle className="w-6 h-6 text-red-400" />
+                Quit Game
+              </DialogTitle>
+              <DialogDescription className="text-gray-300">
+                Are you sure you want to quit this game?
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 space-y-2">
+                <p className="text-red-400 font-semibold text-base">Warning:</p>
+                <ul className="text-sm text-red-200 space-y-1 pl-2">
+                  <li>You will automatically lose this game</li>
+                  <li>Your opponent will be declared the winner</li>
+                  {gameState.currency === 'points' ? (
+                    <li>You will lose 100 points</li>
+                  ) : (
+                    <li>You will lose your {gameState.stakeAmount} SOL stake</li>
+                  )}
+                  <li>Your opponent will be notified that you left</li>
+                </ul>
+              </div>
+            </div>
+            <DialogFooter className="gap-2 mt-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowQuitDialog(false)}
+                className="border border-gray-700 bg-gray-800 text-gray-300 hover:bg-purple-900/40 hover:text-white hover:border-purple-500/40 transition-all duration-200 shadow-none"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleQuitGame}
+                className="bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700 text-white font-semibold shadow-lg px-6"
+              >
+                <LogOut className="w-4 h-4 mr-2" />
+                Quit Game
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Main Game Area */}
+        <main className="flex-1 relative z-20 overflow-y-auto p-4 max-w-6xl mx-auto w-full flex flex-col justify-center">
+          {/* Game Status */}
+          <div className="text-center mb-8">
+            {gameState.gameStatus === "playing" && (
+              <div className="bg-gradient-to-r from-yellow-500/10 to-orange-500/10 backdrop-blur-xl rounded-xl p-6 border border-yellow-500/20 max-w-md mx-auto">
+                <div className="flex items-center justify-center gap-3 mb-4">
+                  <Target className="w-6 h-6 text-yellow-400" />
+                  <h2 className="text-2xl font-bold text-yellow-400">Choose Your Move</h2>
+                </div>
+                <div className="flex items-center justify-center gap-3 bg-gray-800/50 rounded-lg p-3">
+                  <Clock className="w-5 h-5 text-yellow-400" />
+                  <span className="text-2xl font-bold text-yellow-400">{gameState.countdown}s</span>
+                </div>
+              </div>
+            )}
+
+            {/* Round result UI moved to the large centered card */}
+
+            {gameState.gameStatus === "game-over" && (
+              <div
+                className={`backdrop-blur-xl rounded-xl p-8 border max-w-md mx-auto ${(() => {
+                  const currentUserId = publicKey?.toString().slice(0, 8);
+                  const didCurrentUserWin = gameState.winner === currentUserId;
+                  return didCurrentUserWin ? "bg-gradient-to-r from-green-500/10 to-emerald-500/10 border-green-500/20" : "bg-gradient-to-r from-red-500/10 to-pink-500/10 border-red-500/20";
+                })()}`}
+              >
+                <div className="flex items-center justify-center gap-3 mb-4">
+                  {(() => {
+                    const currentUserId = publicKey?.toString().slice(0, 8);
+                    const didCurrentUserWin = gameState.winner === currentUserId;
+                    
+                    return didCurrentUserWin ? (
+                    <>
+                      <Trophy className="w-8 h-8 text-green-400" />
+                      <h2 className="text-3xl font-bold text-green-400">Victory!</h2>
+                    </>
+                  ) : (
+                    <h2 className="text-3xl font-bold text-red-400">Defeat</h2>
+                    );
+                  })()}
+                </div>
+                <div className="text-lg text-gray-300 mb-6">
+                  {gameState.roundResult || 'Game finished!'}
+                </div>
+                <div className="flex flex-col gap-3">
+                <Button
+                  onClick={resetGame}
+                  className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 px-8 py-3 rounded-lg shadow-lg transition-all duration-200"
+                >
+                  <Zap className="w-5 h-5 mr-2" />
+                  Play Again
+                </Button>
+                
+                {/* SOL games manual finalization */}
+                {gameState.currency === 'sol' && (
+                  <div className="space-y-3">
+                    {(() => {
+                      const currentUserId = publicKey?.toString().slice(0, 8);
+                      const didCurrentUserWin = gameState.winner === currentUserId;
+                      
+                      if (didCurrentUserWin) {
+                        return (
+                          <div className="space-y-3">
+                            <div className="bg-green-500/20 border border-green-500/30 rounded-lg p-3 text-sm text-green-300 flex items-center gap-2">
+                              <Trophy className="w-4 h-4 flex-shrink-0" />
+                              <span>You won! Click below to claim your SOL winnings from the smart contract.</span>
+                            </div>
+                            <Button
+                              onClick={handleManualFinalization}
+                              disabled={isFinalizingGame}
+                              className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold shadow-lg px-6 py-3"
+                            >
+                              {isFinalizingGame ? (
+                                <>
+                                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                                  Finalizing...
+                                </>
+                              ) : (
+                                <>
+                                  <Wallet className="w-5 h-5 mr-2" />
+                                  Claim SOL Winnings
+                                </>
+                              )}
+                            </Button>
+                          </div>
+                        );
+                      } else {
+                        return (
+                          <div className="bg-blue-500/20 border border-blue-500/30 rounded-lg p-3 text-sm text-blue-300 flex items-center gap-2">
+                            <Wallet className="w-4 h-4 flex-shrink-0" />
+                            <span>Game complete. Your SOL stake was used to pay the winner through the smart contract.</span>
+                          </div>
+                        );
+                      }
+                    })()}
+                  </div>
+                )}
+
+                <Button
+                  onClick={() => {
+                    const currentUserId = publicKey?.toString().slice(0, 8);
+                    const didCurrentUserWin = gameState.winner === currentUserId;
+                    shareGameResult(didCurrentUserWin);
+                  }}
+                  variant="outline"
+                  className="bg-blue-500/20 text-blue-300 hover:bg-blue-500/30 hover:text-blue-200 border border-blue-500/30 hover:border-blue-500/50 transition-all duration-200 px-8 py-3"
+                >
+                  <Share2 className="w-5 h-5 mr-2" />
+                  Share on X
+                </Button>
+              </div>
+            )}
+          </div>
+
+          {/* Players Section - Only show when game is actually playing or finished */}
+          {(gameState.gameStatus === "playing" || gameState.gameStatus === "game-over" || (gameState.gameStatus === "round-result" && !showRoundResult)) && (
+          <div className="grid md:grid-cols-2 gap-8 mb-8">
+            {/* Player cards content */}
+          </div>
+          )}
+
+          {/* Rest of the game UI */}
+        </main>
+      </div>
+    )
+  }
+
+  return (
+    <div
+      className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 text-white relative overflow-x-hidden h-screen"
+      style={{
+        overscrollBehavior: "none",
+        overscrollBehaviorY: "none",
+        touchAction: "pan-y",
+        height: "100vh",
+        overflowY: "auto",
+      }}
+    >
+      {/* Lobby content */}
+    </div>
+  )
+}

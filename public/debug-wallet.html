@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privy Wallet Debug</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #1a1a1a;
+            color: white;
+        }
+        .debug-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #333;
+            border-radius: 8px;
+            background-color: #2a2a2a;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .error {
+            color: #ff6b6b;
+        }
+        .success {
+            color: #51cf66;
+        }
+        .warning {
+            color: #ffd43b;
+        }
+        .info {
+            color: #74c0fc;
+        }
+        pre {
+            background-color: #1e1e1e;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 Privy Wallet Debug Tool</h1>
+    
+    <div class="debug-section">
+        <h2>1. Check Privy Availability</h2>
+        <button onclick="checkPrivy()">Check Privy</button>
+        <div id="privy-status"></div>
+    </div>
+
+    <div class="debug-section">
+        <h2>2. Check Wallet Connection</h2>
+        <button onclick="checkWallet()">Check Wallet</button>
+        <div id="wallet-status"></div>
+    </div>
+
+    <div class="debug-section">
+        <h2>3. Test Transaction Signing</h2>
+        <button onclick="testSigning()">Test Signing</button>
+        <div id="signing-status"></div>
+    </div>
+
+    <div class="debug-section">
+        <h2>4. Full Debug Info</h2>
+        <button onclick="fullDebug()">Run Full Debug</button>
+        <div id="debug-info"></div>
+    </div>
+
+    <script>
+        function log(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            const className = type === 'error' ? 'error' : 
+                             type === 'success' ? 'success' : 
+                             type === 'warning' ? 'warning' : 'info';
+            element.innerHTML += `<div class="${className}">${message}</div>`;
+        }
+
+        function clearLog(elementId) {
+            document.getElementById(elementId).innerHTML = '';
+        }
+
+        async function checkPrivy() {
+            clearLog('privy-status');
+            log('privy-status', '🔍 Checking Privy availability...', 'info');
+            
+            try {
+                // Check if Privy is available globally
+                if (typeof window.privy !== 'undefined') {
+                    log('privy-status', '✅ Privy is available globally', 'success');
+                    log('privy-status', `Privy version: ${window.privy.version || 'unknown'}`, 'info');
+                } else {
+                    log('privy-status', '❌ Privy not available globally', 'error');
+                }
+
+                // Check if we can access Privy hooks (this would be in React context)
+                log('privy-status', 'ℹ️ Note: Privy hooks (usePrivy, useWallets) are only available in React components', 'warning');
+                
+            } catch (error) {
+                log('privy-status', `❌ Error checking Privy: ${error.message}`, 'error');
+            }
+        }
+
+        async function checkWallet() {
+            clearLog('wallet-status');
+            log('wallet-status', '🔍 Checking wallet connection...', 'info');
+            
+            try {
+                // This would normally be done in a React component
+                log('wallet-status', 'ℹ️ Wallet checking requires React context', 'warning');
+                log('wallet-status', 'ℹ️ In a React component, you would use:', 'info');
+                log('wallet-status', 'const { ready, authenticated, user, wallets } = usePrivy();', 'info');
+                log('wallet-status', 'const solWallet = wallets.find(w => w.chainType === "solana");', 'info');
+                
+            } catch (error) {
+                log('wallet-status', `❌ Error checking wallet: ${error.message}`, 'error');
+            }
+        }
+
+        async function testSigning() {
+            clearLog('signing-status');
+            log('signing-status', '🔍 Testing transaction signing...', 'info');
+            
+            try {
+                log('signing-status', 'ℹ️ Transaction signing requires React context and wallet connection', 'warning');
+                log('signing-status', 'ℹ️ Steps to test:', 'info');
+                log('signing-status', '1. Connect wallet in the main app', 'info');
+                log('signing-status', '2. Open browser console', 'info');
+                log('signing-status', '3. Try to create a SOL game', 'info');
+                log('signing-status', '4. Watch console logs for signing errors', 'info');
+                
+            } catch (error) {
+                log('signing-status', `❌ Error testing signing: ${error.message}`, 'error');
+            }
+        }
+
+        async function fullDebug() {
+            clearLog('debug-info');
+            log('debug-info', '🔍 Running full debug...', 'info');
+            
+            try {
+                // Check browser environment
+                log('debug-info', `Browser: ${navigator.userAgent}`, 'info');
+                log('debug-info', `URL: ${window.location.href}`, 'info');
+                
+                // Check for common libraries
+                if (typeof window.solana !== 'undefined') {
+                    log('debug-info', '✅ Solana Web3.js available', 'success');
+                } else {
+                    log('debug-info', '❌ Solana Web3.js not available', 'error');
+                }
+                
+                if (typeof window.privy !== 'undefined') {
+                    log('debug-info', '✅ Privy available', 'success');
+                } else {
+                    log('debug-info', '❌ Privy not available', 'error');
+                }
+                
+                // Check localStorage for Privy data
+                const privyData = localStorage.getItem('privy:user');
+                if (privyData) {
+                    log('debug-info', '✅ Privy user data found in localStorage', 'success');
+                    try {
+                        const userData = JSON.parse(privyData);
+                        log('debug-info', `User ID: ${userData.id || 'unknown'}`, 'info');
+                        log('debug-info', `Wallets count: ${userData.wallets?.length || 0}`, 'info');
+                    } catch (parseError) {
+                        log('debug-info', '⚠️ Could not parse Privy user data', 'warning');
+                    }
+                } else {
+                    log('debug-info', '❌ No Privy user data in localStorage', 'error');
+                }
+                
+                // Check sessionStorage
+                const sessionData = sessionStorage.getItem('privy:session');
+                if (sessionData) {
+                    log('debug-info', '✅ Privy session data found', 'success');
+                } else {
+                    log('debug-info', '❌ No Privy session data', 'error');
+                }
+                
+            } catch (error) {
+                log('debug-info', `❌ Error in full debug: ${error.message}`, 'error');
+            }
+        }
+
+        // Auto-run basic checks on page load
+        window.addEventListener('load', () => {
+            log('privy-status', '🔄 Page loaded, running basic checks...', 'info');
+            checkPrivy();
+        });
+    </script>
+</body>
+</html>
